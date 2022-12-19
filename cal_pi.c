@@ -88,7 +88,7 @@ void main(int argc, char *argv[])
 {
 
     int ch = 0;
-    while ((ch = getopt(argc, argv, "n:p:m:")) != -1) {
+    while ((ch = getopt(argc, argv, "hn:p:m:")) != -1) {
         switch (ch) {
         case 'n':
             printf("option thread num:%s\n", optarg);
@@ -102,6 +102,10 @@ void main(int argc, char *argv[])
             printf("option mode:%s\n", optarg);
             g_mode = atoi(optarg);
             break;
+	case 'h':
+            usage(argc, argv);
+            break;
+            exit(0);
         default:
             printf("option invalid:%c\n", ch);
             usage(argc, argv);
