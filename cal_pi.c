@@ -104,7 +104,6 @@ void main(int argc, char *argv[])
             break;
 	case 'h':
             usage(argc, argv);
-            break;
             exit(0);
         default:
             printf("option invalid:%c\n", ch);
