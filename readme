@@ -1,0 +1,15 @@
+1. Usage: cal_pi [Options]
+Options:
+ -n    how many times to run or how many thread create
+ -p    pai num, how many pai's value
+ -m    mode, 1 means subsequense run cpu burst, 2 means multi-thread run cpu burst, 3 means subsequense run io burst, 4 means multi thread run io burst, 5 means multi thread run io burst and cpu burst,echo type half of total threads
+ -s    sched_mode, 0:SCHED_OTHER, 1:SCHED_RR, 2:SCHED_FIFO
+ -c    cpu burst priority, must use with SCHED_RR or SCHED_FIFO, value range [1, 99]
+ -i    io burst priority, must use with SCHED_RR or SCHED_FIFO, value range [1, 99]
+ -h    help information
+
+
+2. run command
+sudo time ./cal_pi -m 5 -s 1 -n 6 -c 98 -i 99
+测试模式5, 会起6个线程，3个io burst，3个cpu burst，使用SCHED_RR调度算法，cpu burst线程优先级是98， io burst线程优先级是99
+
