@@ -16,11 +16,11 @@ int g_thread_num = 1;
 int g_pai_num = 56000;
 int g_mode = 1; /* mode 1: 顺序执行， mode 2: 多线程执行 */
 int g_file_num = 1;
-int g_file_size = (1024 * 1024 * 256);
+int g_file_size = (1024 * 1024 * 512);
 int g_sched = 0; /* 0:SCHED_OTHER, 1:SCHED_RR, 2:SCHED_FIFO  */
 
-int g_io_priority = 99;
-int g_cpu_priority = 98;
+int g_io_priority = 98;
+int g_cpu_priority = 97;
 /*
  * set thread scheduler policy and priority
  * policy are SCHED_FIFO, SCHED_RR, and SCHED_OTHER
@@ -98,6 +98,7 @@ int do_cal_pai(int pai_num)
 
 void* thread_do_cal_pai(void *arg) 
 {
+    //sched_yield();
     int thread_num = *((int *)arg);
     pid_t pid = getpid();
     if (do_cal_pai(g_pai_num) != 0) {
@@ -121,8 +122,8 @@ void usage(int argc, char *argv[])
     " -p    pai num, how many pai's value\n"
     " -m    mode, 1 means subsequense run cpu burst, 2 means multi-thread run cpu burst, 3 means subsequense run io burst, 4 means multi thread run io burst, 5 means multi thread run io burst and cpu burst,echo type half of total threads\n"
     " -s    sched_mode, 0:SCHED_OTHER, 1:SCHED_RR, 2:SCHED_FIFO \n"
-    " -c    cpu burst priority, must use with SCHED_RR or SCHED_FIFO, value range [1, 99]\n"
-    " -i    io burst priority, must use with SCHED_RR or SCHED_FIFO, value range [1, 99]\n"
+    " -c    cpu burst priority, must use with SCHED_RR or SCHED_FIFO, value range [1, 98]\n"
+    " -i    io burst priority, must use with SCHED_RR or SCHED_FIFO, value range [1, 98]\n"
     " -h    help information\n"
     "\n"
     , program_name);
@@ -132,7 +133,7 @@ void usage(int argc, char *argv[])
 
 int do_file_io(char *file_path, int g_file_size)
 {
-    char content[512];
+    char content[1024];
     FILE *f = fopen(file_path, "wb+");
     if (f == NULL ) {
         printf("do_file_io open file error:%s", file_path);
@@ -181,6 +182,7 @@ int do_file_io(char *file_path, int g_file_size)
 
 void *thread_do_file_io(void *arg)
 {
+    //sched_yield();
     int thread_num = *((int *)arg);
     pid_t pid = getpid();
     char file_path[128];
@@ -240,17 +242,28 @@ void main(int argc, char *argv[])
         }
     
     }
-
+    pthread_t pid_array[1024];
     int sched_value = SCHED_OTHER;
     if (g_sched == 1) {
         sched_value = SCHED_RR;
     } else if (g_sched == 2) {
         sched_value = SCHED_FIFO;
     }
-    
-
+   
     pthread_attr_t attr;
     struct sched_param param;
+    /* set main thread priority first */
+    int maxpri = sched_get_priority_max(SCHED_FIFO);
+    if (maxpri == -1) {
+        printf("get FIFO priority failed, you may need sudo\n");
+        exit(EXIT_FAILURE);
+    }
+
+    param.sched_priority = maxpri;
+     if (sched_setscheduler(getpid(), SCHED_FIFO, &param) != 0) {
+        printf("set main thread priority failed, you may need sudo\n");
+        exit(EXIT_FAILURE);
+     }
     int ret = 0;
     char *rev = NULL;
 
@@ -275,7 +288,8 @@ void main(int argc, char *argv[])
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
             }    
         } else {
             ret = pthread_set_sched_prolicy_and_priority(&attr, &param, sched_value, g_cpu_priority);
@@ -289,7 +303,8 @@ void main(int argc, char *argv[])
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
             }
         }
         printf("\n create thread %d, run success\n", g_thread_num);
@@ -314,7 +329,8 @@ void main(int argc, char *argv[])
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
             }    
         } else {
             ret = pthread_set_sched_prolicy_and_priority(&attr, &param, sched_value, g_io_priority);
@@ -338,23 +354,27 @@ void main(int argc, char *argv[])
         if (sched_value == SCHED_OTHER) {
             for (i = 0; i < g_thread_num/2; i++) {
                 pthread_t tid;
+                printf("thread:%d\n",i);
                 if (pthread_create(&tid, NULL, (void*)thread_do_file_io, &i) != 0) {
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
             }
 
             for (i = g_thread_num/2; i < g_thread_num; i++) {
              
                 pthread_t tid;
+                printf("thread:%d\n",i);
             
                 if (pthread_create(&tid, NULL, (void*)thread_do_cal_pai, &i) != 0) {
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
 
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
             }
         } else {
             ret = pthread_set_sched_prolicy_and_priority(&attr, &param, sched_value, g_io_priority);
@@ -365,12 +385,14 @@ void main(int argc, char *argv[])
             }
 
             for (i = 0; i < g_thread_num/2; i++) { 
+                printf("thread:%d\n",i);
                 pthread_t tid;
                 if (pthread_create(&tid, &attr, (void*)thread_do_file_io, &i) != 0) {
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
 
             }
 
@@ -380,18 +402,24 @@ void main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
             for (i = g_thread_num/2; i < g_thread_num; i++) {
+                printf("thread:%d\n",i);
                 pthread_t tid;
                 if (pthread_create(&tid, &attr, (void*)thread_do_cal_pai, &i) != 0) {
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
-                pthread_join(tid, (void *)&rev);
+                pid_array[i] = tid;
+                //pthread_join(tid, (void *)&rev);
             }
         }     
     } else {
         printf("mode:%d unknown\n", g_mode);
         exit(EXIT_FAILURE);
     }  
+
+    for (i = 0; i < g_thread_num; i++) {
+        pthread_join(pid_array[i], (void *)&rev);
+    }
 
     endTime = clock();
     //printf("\n time:%f\n", (double)(endTime - startTime));
