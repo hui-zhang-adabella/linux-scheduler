@@ -416,9 +416,11 @@ void main(int argc, char *argv[])
         printf("mode:%d unknown\n", g_mode);
         exit(EXIT_FAILURE);
     }  
-
-    for (i = 0; i < g_thread_num; i++) {
-        pthread_join(pid_array[i], (void *)&rev);
+    
+    if (g_mode == MULTI_THREAD_MODE || g_mode == IO_MULTI_THREAD_MODE || g_mode == CPU_AND_IO_MIX_MODE) {
+        for (i = 0; i < g_thread_num; i++) {
+            pthread_join(pid_array[i], (void *)&rev);
+        }
     }
 
     endTime = clock();
