@@ -345,8 +345,8 @@ void main(int argc, char *argv[])
                     printf("pthread_create error, thread_num:%d\n", i);
                     exit(EXIT_FAILURE);
                 }
+                pid_array[i] = tid;
             }
-
       
         }
         printf("\n create io thread %d, run success\n", g_thread_num);
